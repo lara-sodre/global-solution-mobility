@@ -1,9 +1,4 @@
 # Mobility — Acessibilidade Inclusiva: Mobilidade sem Barreiras
-
-**Disciplina:** Microservice and Web Engineering & IT Services  
-**Turma:** 3SIPF  
-**Instituição:** FIAP  
-
 ---
 
 ## Integrantes
@@ -13,7 +8,6 @@
 | Lara Rosa Sodré | 555496 |
 | Beatriz Matos Marques Rosa | 554805 |
 | Keyla Dayana Magne Ala | 557630 |
-
 ---
 
 ## 1. Sobre o projeto
