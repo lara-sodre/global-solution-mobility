@@ -4,6 +4,7 @@ import br.com.fiap.ms.avaliacoes.dto.AvaliacaoRequestDTO;
 import br.com.fiap.ms.avaliacoes.dto.AvaliacaoResponseDTO;
 import br.com.fiap.ms.avaliacoes.entities.Status;
 import br.com.fiap.ms.avaliacoes.service.AvaliacaoService;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ public class AvaliacaoController {
     @Autowired
     private AvaliacaoService avaliacaoService;
 
+    @Operation(summary = "Lista todas as avaliações")
     @GetMapping
     public ResponseEntity<List<AvaliacaoResponseDTO>> getAllAvaliacoes() {
 
@@ -29,6 +31,7 @@ public class AvaliacaoController {
         return ResponseEntity.ok(list);
     }
 
+    @Operation(summary = "Busca uma avaliação por ID")
     @GetMapping("/{id}")
     public ResponseEntity<AvaliacaoResponseDTO> getAvaliacaoById(@PathVariable Long id) {
 
@@ -37,6 +40,7 @@ public class AvaliacaoController {
         return ResponseEntity.ok(avaliacaoDTO);
     }
 
+    @Operation(summary = "Registra uma nova avaliação")
     @PostMapping
     public ResponseEntity<AvaliacaoResponseDTO> saveAvaliacao(@RequestBody @Valid AvaliacaoRequestDTO requestDTO) {
 
@@ -51,15 +55,17 @@ public class AvaliacaoController {
         return ResponseEntity.created(uri).body(responseDTO);
     }
 
+    @Operation(summary = "Atualiza uma avaliação (não permitido se já VALIDADA)")
     @PutMapping("/{id}")
     public ResponseEntity<AvaliacaoResponseDTO> updateAvaliacao(@PathVariable Long id,
-                                                       @Valid @RequestBody AvaliacaoRequestDTO requestDTO) {
+                                                                @Valid @RequestBody AvaliacaoRequestDTO requestDTO) {
 
         AvaliacaoResponseDTO responseDTO = avaliacaoService.updateAvaliacao(id, requestDTO);
 
         return ResponseEntity.ok(responseDTO);
     }
 
+    @Operation(summary = "Valida a avaliação e atualiza o status do local no ms-locais via OpenFeign")
     @PatchMapping("/{id}/validar")
     public ResponseEntity<AvaliacaoResponseDTO> validarAvaliacaoDoLocal(@PathVariable
                                                                         @NotNull Long id) {
@@ -73,6 +79,7 @@ public class AvaliacaoController {
         return ResponseEntity.ok(dto);
     }
 
+    @Operation(summary = "Exclui uma avaliação")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
 

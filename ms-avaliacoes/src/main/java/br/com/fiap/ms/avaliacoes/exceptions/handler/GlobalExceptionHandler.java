@@ -40,10 +40,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(err);
     }
 
+    // 400 - campos inválidos (Bean Validation)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CustomErrorDTO> methodArgumentNotValid(MethodArgumentNotValidException e,
                                                                  HttpServletRequest request) {
-        HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
+        HttpStatus status = HttpStatus.BAD_REQUEST; //400
         ValidationErrorDTO err = new ValidationErrorDTO(Instant.now(), status.value(),
                 "Dados inválidos", request.getRequestURI());
 
@@ -65,7 +66,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(err);
     }
 
-    // 400 - tipo inválido em PathVariable/RequestParam (ex.: /produtos/abc quando espera Long)
+    // 400 - tipo inválido em PathVariable/RequestParam (ex.: /avaliacoes/abc quando espera Long)
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<CustomErrorDTO> handleTypeMismatch(MethodArgumentTypeMismatchException e,
                                                              HttpServletRequest request){

@@ -13,6 +13,7 @@
 | Lara Rosa Sodré | 555496 |
 | Beatriz Matos Marques Rosa | 554805 |
 | Keyla Dayana Magne Ala | 557630 |
+
 ---
 
 ## 1. Sobre o projeto
@@ -153,8 +154,8 @@ Cada microsserviço possui seu próprio banco de dados, sem compartilhamento de 
 | Tecnologia | Utilização |
 |---|---|
 | Java 25 | Linguagem de programação |
-| Spring Boot 4.0.9 | Desenvolvimento dos microsserviços e Gateway |
-| Spring Cloud | Integração entre serviços |
+| Spring Boot 4.0.9 | Desenvolvimento dos microsserviços, Eureka e Gateway |
+| Spring Cloud 2025.1.2 | Integração entre serviços |
 | Spring Cloud Netflix Eureka | Registro e descoberta de serviços |
 | Spring Cloud Gateway | Roteamento das requisições |
 | OpenFeign | Comunicação síncrona entre microsserviços |
@@ -250,6 +251,8 @@ Aguarde até que os dois serviços apresentem o estado `healthy`.
 As credenciais apresentadas são destinadas exclusivamente ao ambiente local de desenvolvimento.
 
 Os bancos utilizam volumes Docker independentes para persistência dos dados.
+
+> **Atenção:** as portas `3306` e `3307` da máquina precisam estar livres. Se já houver um MySQL local usando alguma delas, pare esse serviço antes de subir os containers.
 
 ### 6.3. Executar o Eureka Server
 
@@ -388,19 +391,22 @@ Para testar múltiplas instâncias:
 
 ### Swagger / OpenAPI
 
-Cada microsserviço possui documentação OpenAPI e Swagger UI.
+Cada microsserviço possui documentação OpenAPI e Swagger UI, com os endpoints documentados e executáveis ("Try it out").
 
-Como os microsserviços utilizam portas aleatórias, consulte o log de inicialização para identificar a porta atribuída a cada instância.
+Como os microsserviços utilizam portas aleatórias, descubra a porta de cada instância de uma das formas:
 
-Acesse:
+- no log de inicialização, na linha `Tomcat started on port ...`;
+- no painel do Eureka (http://localhost:8761): ao passar o mouse sobre o link da instância na coluna *Status*, a porta aparece na URL.
+
+Depois acesse:
 
 ```text
 http://localhost:PORTA/swagger-ui/index.html
 ```
 
-Substitua `PORTA` pela porta apresentada no log do respectivo microsserviço.
+Substitua `PORTA` pela porta da instância do `ms-locais` ou do `ms-avaliacoes`.
 
-Também é possível consultar a especificação OpenAPI:
+A especificação OpenAPI também está disponível em:
 
 ```text
 http://localhost:PORTA/v3/api-docs
@@ -578,7 +584,7 @@ Exemplo:
 }
 ```
 
-A aplicação deverá rejeitar os dados inválidos.
+A aplicação deverá rejeitar os dados inválidos com **HTTP 400** e a lista de campos com erro.
 
 Também é possível testar a busca de um identificador inexistente:
 
@@ -641,16 +647,17 @@ As migrations são executadas automaticamente na inicialização dos respectivos
 
 Os microsserviços seguem arquitetura em camadas, com separação de responsabilidades:
 
-| Camada | Responsabilidade |
-|---|---|
-| Entity | Representação das entidades e dados persistidos |
-| DTO | Objetos de entrada e saída das APIs |
-| Repository | Acesso e persistência dos dados |
-| Service | Regras de negócio e operações da aplicação |
-| Controller | Exposição dos endpoints e respostas HTTP |
-| Exceptions | Tratamento de exceções e erros personalizados |
-| Config | Configurações dos componentes |
-| Client | Comunicação com outros microsserviços por OpenFeign |
+| Camada | Pacote | Responsabilidade |
+|---|---|---|
+| Entity | `entities` | Representação das entidades e dados persistidos |
+| DTO de entrada | `dto.request` | Objetos recebidos nas requisições, com validações |
+| DTO de saída | `dto.response` | Objetos retornados nas respostas |
+| Repository | `repository` | Acesso e persistência dos dados |
+| Service | `service` | Regras de negócio e operações da aplicação |
+| Controller | `controller` | Exposição dos endpoints e respostas HTTP |
+| Exceptions | `exceptions` | Tratamento de exceções e erros personalizados |
+| Config | `config` | Configurações dos componentes (OpenAPI, Resilience4j) |
+| Client | `client` | Comunicação com outros microsserviços por OpenFeign |
 
 As entidades não são expostas diretamente nos endpoints. As requisições e respostas utilizam DTOs específicos.
 
