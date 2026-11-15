@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS tb_local (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    nome VARCHAR(100) NOT NULL,
+    endereco VARCHAR(200) NOT NULL,
+    cidade VARCHAR(80) NOT NULL,
+    tipo_local VARCHAR(50) NOT NULL,
+    status VARCHAR(35) NOT NULL,
+    CONSTRAINT pk_tb_local PRIMARY KEY (id)
+);

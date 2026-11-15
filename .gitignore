@@ -1,0 +1,19 @@
+target/
+.mvn/wrapper/maven-wrapper.jar
+HELP.md
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Arquivos de ambiente e credenciais
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Arquivos de compilação
+out/
+build/
