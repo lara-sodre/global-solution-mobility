@@ -1,247 +1,714 @@
-# Global Solution 2026-02 — Acessibilidade Inclusiva: Mobilidade sem barreiras
+# Global Solution 2026-02 — Acessibilidade Inclusiva: Mobilidade sem Barreiras
 
-Microsserviços com **comunicação síncrona** (Java 25 + Spring Boot 4.0.9 + MySQL).
+**Disciplina:** Microservice and Web Engineering & IT Services  
+**Turma:** 3SIPF  
+**Instituição:** FIAP  
 
-## 👥 Integrantes
+---
 
-| Nome | RM |
-|------|----|
-| NOME COMPLETO DO INTEGRANTE 1 | RM00000 |
-| NOME COMPLETO DO INTEGRANTE 2 | RM00000 |
+## Integrantes
 
-## 🎯 Problema
+| Integrante | RM |
+|---|---|
+| Lara Rosa Sodré | 555496 |
+| Beatriz Matos Marques Rosa | 554805 |
+| Keyla Dayana Magne Ala | 557630 |
+---
 
-A acessibilidade urbana ainda tem muitas barreiras para pessoas com deficiência permanente. A falta de
-informação sobre a estrutura de estabelecimentos, calçadas, transportes e espaços públicos limita a
-autonomia e a segurança dessas pessoas. Além disso, **acessível para uma pessoa não significa acessível para
-todas**: um local com rampa serve a quem usa cadeira de rodas, mas pode não ter piso tátil para quem tem
-deficiência visual.
+## 1. Sobre o projeto
 
-## 💡 Solução
+O projeto Global Solution — Acessibilidade Inclusiva: Mobilidade sem Barreiras propõe uma solução tecnológica para melhorar o acesso a informações sobre acessibilidade em estabelecimentos e espaços públicos.
 
-Plataforma de acessibilidade **personalizada e colaborativa**. Esta entrega implementa o núcleo da plataforma
-em dois microsserviços:
+A falta de informações sobre rampas, pisos táteis, recursos de comunicação e outras adaptações dificulta a autonomia e a circulação de pessoas com diferentes condições de mobilidade e deficiência.
 
-| Microsserviço | Responsabilidade |
-|---------------|------------------|
-| **ms-locais** | Mapeia locais (estabelecimentos/espaços públicos) e seus **recursos de acessibilidade por tipo de deficiência** (`FISICA`, `VISUAL`, `AUDITIVA`, `INTELECTUAL`), informando se cada recurso está disponível. |
-| **ms-avaliacoes** | Recebe **avaliações colaborativas** sobre as condições reais de acessibilidade de um local, indicando o tipo de deficiência do avaliador, nota e a barreira encontrada. |
+A solução busca centralizar informações sobre locais e seus recursos de acessibilidade, além de permitir avaliações colaborativas sobre as condições encontradas nesses espaços.
 
-**Comunicação síncrona:** quando uma avaliação é validada (`PATCH /api/v1/avaliacoes/{id}/validar`), o
-`ms-avaliacoes` chama o `ms-locais` (OpenFeign + Eureka + Load Balancer) e o local passa de `CADASTRADO`
-para `VERIFICADO`, ou seja, tem a informação confirmada pela comunidade.
+Nesta entrega, o núcleo da solução foi desenvolvido utilizando uma arquitetura de microsserviços com comunicação síncrona.
 
-Se o `ms-locais` estiver indisponível, o **Circuit Breaker + Fallback** responde `503` e a avaliação fica
-`VALIDACAO_PENDENTE` (nada é perdido).
+## 2. Solução implementada
 
-### Status
+A aplicação é composta por dois microsserviços independentes:
 
-| Microsserviço | Status possíveis | Quem altera |
-|---------------|------------------|-------------|
-| ms-locais | `CADASTRADO` → `VERIFICADO` | **ms-avaliacoes**, via OpenFeign |
-| ms-avaliacoes | `REGISTRADA` → `VALIDADA` ou `VALIDACAO_PENDENTE` (fallback) | Endpoint `/validar` |
+### MS-Locais
 
-## 🏗️ Arquitetura
+Responsável pelo cadastro, consulta, atualização e exclusão de locais e seus respectivos recursos de acessibilidade.
 
+Cada local pode possuir diferentes recursos, classificados conforme o tipo de deficiência:
+
+- Física;
+- Visual;
+- Auditiva;
+- Intelectual.
+
+O microsserviço também controla o status de verificação dos locais:
+
+- `CADASTRADO`: local cadastrado, ainda sem validação da comunidade.
+- `VERIFICADO`: local cuja avaliação foi validada pelo outro microsserviço.
+
+### MS-Avaliações
+
+Responsável pelo cadastro, consulta, atualização e exclusão de avaliações colaborativas sobre os locais.
+
+As avaliações armazenam informações como:
+
+- Nome do usuário;
+- Tipo de deficiência;
+- Nota;
+- Comentário;
+- Barreira encontrada;
+- Identificador do local avaliado.
+
+Os status utilizados são:
+
+- `REGISTRADA`: avaliação cadastrada.
+- `VALIDADA`: avaliação validada com sucesso.
+- `VALIDACAO_PENDENTE`: não foi possível concluir a comunicação com o MS-Locais.
+
+### Comunicação entre os microsserviços
+
+A comunicação ocorre de forma síncrona utilizando OpenFeign, Eureka Server e Load Balancer.
+
+Quando uma avaliação é validada, o MS-Avaliações realiza uma chamada ao MS-Locais para atualizar o status do local de `CADASTRADO` para `VERIFICADO`.
+
+A comunicação utiliza o nome lógico do serviço registrado no Eureka, sem depender de URLs fixas para localizar as instâncias.
+
+Também foi implementado Circuit Breaker com Resilience4j e Fallback para tratar situações em que o MS-Locais esteja indisponível.
+
+---
+
+## 3. Arquitetura do projeto
+
+A solução está organizada em um único repositório público (monorepo), contendo todos os componentes necessários para execução.
+
+```text
+global-solution-mobility/
+│
+├── api-gateway/
+│   └── API Gateway - Porta 8082
+│
+├── eureka-server/
+│   └── Service Discovery - Porta 8761
+│
+├── ms-locais/
+│   └── Microsserviço de Locais
+│
+├── ms-avaliacoes/
+│   └── Microsserviço de Avaliações
+│
+├── mysql_846/
+│   └── docker-compose.yml
+│
+├── docs/
+│   └── screenshots/
+│
+├── .gitignore
+└── README.md
 ```
-                       ┌────────────────────┐
-                       │   Eureka Server    │  :8761
-                       └─────▲───────▲──────┘
-             registra/descobre│       │registra/descobre
- Cliente ──► API Gateway :8082 ───┬───┴────────────┐
- (Swagger/Postman)                │                │
-                      ┌───────────▼──┐   OpenFeign  ┌▼────────────┐
-                      │ ms-avaliacoes│ ───────────► │  ms-locais  │   (porta aleatória,
-                      │ (n instâncias)│ LoadBalancer │(n instâncias)│    várias instâncias)
-                      └──────┬───────┘ CircuitBreaker└──────┬──────┘
-                             │          + Fallback          │
-                    MySQL :3307 (db_avaliacoes)    MySQL :3306 (db_locais)
+
+### Fluxo de comunicação
+
+```text
+                   CLIENTE
+                      |
+                      v
+              API GATEWAY :8082
+                      |
+                      v
+               EUREKA SERVER
+                  :8761
+                      |
+          +-----------+-----------+
+          |                       |
+          v                       v
+      MS-LOCAIS              MS-AVALIACOES
+    Porta aleatória         Porta aleatória
+          |                       |
+          v                       |
+       MySQL                     |
+      :3306                      |
+   db_locais                     |
+                                  |
+                                  |
+                               MySQL
+                               :3307
+                           db_avaliacoes
+
+       MS-AVALIACOES
+              |
+              | OpenFeign
+              | Load Balancer
+              | Circuit Breaker
+              | Fallback
+              |
+              v
+          MS-LOCAIS
 ```
 
-Camadas de cada microsserviço: `controller` → `service` → `repository` → `entities`, com `dto` (Request/Response),
-`exceptions` (exceções customizadas + `GlobalExceptionHandler`), `client` (Feign) e `config`.
+Cada microsserviço possui seu próprio banco de dados, sem compartilhamento de schemas ou tabelas.
 
-## ✅ Requisitos
+---
 
-- **Java 25**
-- **Docker** e Docker Compose (somente para o MySQL)
-- Maven não precisa estar instalado: usa-se o `mvnw` de cada projeto
-- Portas livres: `8761` (Eureka), `8082` (Gateway), `3306` e `3307` (MySQL)
+## 4. Tecnologias utilizadas
 
-## ▶️ Como executar (ambiente limpo)
+| Tecnologia | Utilização |
+|---|---|
+| Java 25 | Linguagem de programação |
+| Spring Boot 4.0.9 | Desenvolvimento dos microsserviços e Gateway |
+| Spring Cloud | Integração entre serviços |
+| Spring Cloud Netflix Eureka | Registro e descoberta de serviços |
+| Spring Cloud Gateway | Roteamento das requisições |
+| OpenFeign | Comunicação síncrona entre microsserviços |
+| Spring Cloud LoadBalancer | Distribuição de chamadas entre instâncias |
+| Resilience4j | Circuit Breaker e tratamento de falhas |
+| MySQL 8.4.6 | Persistência dos dados |
+| Spring Data JPA | Persistência e acesso aos dados |
+| Flyway | Criação, versionamento e carga inicial do banco |
+| Swagger / OpenAPI | Documentação interativa das APIs |
+| Maven | Gerenciamento de dependências e execução |
+| Docker Compose | Inicialização dos bancos de dados |
 
-Execute cada passo em um **terminal separado**, na ordem abaixo, a partir da raiz do repositório.
-No Windows use `mvnw.cmd` no lugar de `./mvnw` (no Linux/Mac, se necessário: `chmod +x */mvnw`).
+---
 
-**1) Subir os dois bancos MySQL (Docker)**
+## 5. Pré-requisitos
+
+Antes de iniciar o projeto, é necessário ter instalado:
+
+- JDK 25;
+- Docker Desktop;
+- Docker Compose;
+- IntelliJ IDEA (opcional);
+- Git (para clonar o repositório).
+
+Não é necessário instalar o Maven separadamente, pois cada projeto possui seu próprio Maven Wrapper.
+
+Verifique a instalação do Java:
 
 ```bash
-docker compose up -d
-docker compose ps        # aguarde os dois containers ficarem "healthy"
+java -version
 ```
 
-> `mysql-locais` → `localhost:3306` (`db_locais`) · `mysql-avaliacoes` → `localhost:3307` (`db_avaliacoes`) · usuário `root` / senha `root`.
-> As tabelas e a carga inicial são criadas automaticamente pelo **Flyway** na primeira execução.
+Verifique a instalação do Docker:
 
-**2) Eureka Server** (porta 8761)
+```bash
+docker --version
+docker compose version
+```
+
+---
+
+## 6. Como executar o projeto
+
+As instruções abaixo consideram um ambiente local limpo, seguindo a estrutura do repositório.
+
+### 6.1. Clonar o repositório
+
+```bash
+git clone https://github.com/lara-sodre/global-solution-mobility.git
+```
+
+Acesse a pasta do projeto:
+
+```bash
+cd global-solution-mobility
+```
+
+### 6.2. Iniciar os bancos de dados MySQL
+
+O projeto utiliza dois bancos independentes, inicializados por meio do Docker Compose.
+
+O arquivo de configuração está localizado em:
+
+```text
+mysql_846/docker-compose.yml
+```
+
+Na raiz do projeto, execute:
+
+```bash
+docker compose -f mysql_846/docker-compose.yml up -d
+```
+
+Verifique os containers:
+
+```bash
+docker compose -f mysql_846/docker-compose.yml ps
+```
+
+Aguarde até que os dois serviços apresentem o estado `healthy`.
+
+**Configuração dos bancos:**
+
+| Configuração | MS-Locais | MS-Avaliações |
+|---|---|---|
+| Container | mysql-locais | mysql-avaliacoes |
+| Banco | db_locais | db_avaliacoes |
+| Host | localhost | localhost |
+| Porta | 3306 | 3307 |
+| Usuário | root | root |
+| Senha | root | root |
+
+As credenciais apresentadas são destinadas exclusivamente ao ambiente local de desenvolvimento.
+
+Os bancos utilizam volumes Docker independentes para persistência dos dados.
+
+### 6.3. Executar o Eureka Server
+
+Abra um novo terminal na raiz do projeto.
+
+Entre na pasta:
 
 ```bash
 cd eureka-server
+```
+
+Execute:
+
+**Windows:**
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+**Linux / macOS:**
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-**3) ms-locais** (porta aleatória)
+Após a inicialização, acesse:
+
+http://localhost:8761
+
+O painel do Eureka permite visualizar os microsserviços registrados.
+
+### 6.4. Executar o MS-Locais
+
+Abra outro terminal na raiz do projeto.
 
 ```bash
 cd ms-locais
+```
+
+**Windows:**
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+**Linux / macOS:**
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-**4) ms-avaliacoes** (porta aleatória)
+O microsserviço utiliza uma porta aleatória (`server.port=0`) e realiza seu registro no Eureka Server.
+
+Na primeira execução, o Flyway executará automaticamente as migrations responsáveis pela criação das tabelas e inserção dos dados iniciais.
+
+### 6.5. Executar o MS-Avaliações
+
+Abra outro terminal na raiz do projeto.
 
 ```bash
 cd ms-avaliacoes
+```
+
+**Windows:**
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+**Linux / macOS:**
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-**5) API Gateway** (porta 8082)
+O microsserviço também utiliza uma porta aleatória e realiza seu registro no Eureka Server.
+
+O Flyway executará as migrations correspondentes ao banco `db_avaliacoes`.
+
+### 6.6. Executar o API Gateway
+
+Abra outro terminal na raiz do projeto.
 
 ```bash
 cd api-gateway
+```
+
+**Windows:**
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+**Linux / macOS:**
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-**Múltiplas instâncias:** repita o passo 3 e/ou 4 em outro terminal. Como `server.port=0`, cada instância
-sobe em uma porta aleatória e aparece separadamente no Eureka. O Load Balancer distribui as chamadas.
+O Gateway será iniciado na porta fixa `8082` e utilizará o Eureka para localizar as instâncias disponíveis dos microsserviços.
 
-> Também é possível executar cada projeto pelo IntelliJ IDEA (classes `*Application`). Para várias instâncias,
-> habilite *Allow multiple instances* na configuração de execução.
+### 6.7. Ordem de inicialização
 
-## 🔗 URLs
+Para garantir o funcionamento correto da aplicação, siga esta ordem:
 
-| O quê | URL |
-|-------|-----|
-| Eureka (dashboard) | http://localhost:8761 |
-| **Swagger UI (único, via Gateway)** | http://localhost:8082/swagger-ui.html |
-| ms-locais via Gateway | http://localhost:8082/ms-locais/api/v1/locais |
-| ms-avaliacoes via Gateway | http://localhost:8082/ms-avaliacoes/api/v1/avaliacoes |
+1. Docker e bancos MySQL;
+2. Eureka Server;
+3. MS-Locais;
+4. MS-Avaliações;
+5. API Gateway.
 
-Swagger direto em uma instância: `http://localhost:<porta-do-Eureka>/swagger-ui.html` (selecione o servidor `/` na lista *Servers*).
+Cada componente deve permanecer em execução em seu próprio terminal.
 
-No Swagger UI do Gateway, escolha **ms-locais** ou **ms-avaliacoes** na lista (canto superior direito).
-A lista é atualizada a cada 10 s; se estiver vazia logo após subir, aguarde alguns segundos e recarregue.
+### 6.8. Executar múltiplas instâncias
 
-## 📚 Endpoints (API v1)
+Os microsserviços estão configurados com `server.port=0`, permitindo que diferentes instâncias sejam iniciadas em portas aleatórias.
 
-### ms-locais — `/api/v1/locais`
+Para testar múltiplas instâncias:
 
-| Método | Rota | Descrição | Retorno |
-|--------|------|-----------|---------|
-| GET | `/api/v1/locais` | Lista locais | 200 |
-| GET | `/api/v1/locais/{id}` | Busca por ID | 200 / 404 |
-| POST | `/api/v1/locais` | Cadastra local (status `CADASTRADO`) | 201 + `Location` / 422 |
-| PUT | `/api/v1/locais/{id}` | Atualiza local | 200 / 404 / 409 (já `VERIFICADO`) / 422 |
-| PUT | `/api/v1/locais/{localId}/avaliacao/validada` | Marca como `VERIFICADO` (**chamado via Feign**) | 204 / 404 |
-| DELETE | `/api/v1/locais/{id}` | Exclui | 204 / 404 |
+1. Inicie uma instância do microsserviço.
+2. Abra outro terminal.
+3. Execute novamente o mesmo comando de inicialização.
+4. Verifique no Eureka se as instâncias foram registradas.
+5. Realize requisições para observar a distribuição de chamadas pelo Load Balancer.
 
-### ms-avaliacoes — `/api/v1/avaliacoes`
+---
 
-| Método | Rota | Descrição | Retorno |
-|--------|------|-----------|---------|
-| GET | `/api/v1/avaliacoes` | Lista avaliações | 200 |
-| GET | `/api/v1/avaliacoes/{id}` | Busca por ID | 200 / 404 |
-| POST | `/api/v1/avaliacoes` | Registra avaliação (status `REGISTRADA`) | 201 + `Location` / 422 |
-| PUT | `/api/v1/avaliacoes/{id}` | Atualiza avaliação | 200 / 404 / 409 (já `VALIDADA`) / 422 |
-| PATCH | `/api/v1/avaliacoes/{id}/validar` | Valida e altera o local no ms-locais (**Feign + Circuit Breaker**) | 200 / 404 / **503** (fallback) |
-| DELETE | `/api/v1/avaliacoes/{id}` | Exclui | 204 / 404 |
+## 7. Endereços de acesso
 
-## 🧪 Roteiro de teste
+| Componente | Endereço |
+|---|---|
+| Eureka Server | http://localhost:8761 |
+| API Gateway | http://localhost:8082 |
+| MS-Locais via Gateway | http://localhost:8082/ms-locais/api/v1/locais |
+| MS-Avaliações via Gateway | http://localhost:8082/ms-avaliacoes/api/v1/avaliacoes |
 
-Todos os exemplos passam pelo Gateway (`localhost:8082`). Se preferir, faça tudo pelo Swagger UI.
+### Swagger / OpenAPI
 
-**1. Ver os dados iniciais (Flyway)**
+Cada microsserviço possui documentação OpenAPI e Swagger UI.
+
+Como os microsserviços utilizam portas aleatórias, consulte o log de inicialização para identificar a porta atribuída a cada instância.
+
+Acesse:
+
+```text
+http://localhost:PORTA/swagger-ui/index.html
+```
+
+Substitua `PORTA` pela porta apresentada no log do respectivo microsserviço.
+
+Também é possível consultar a especificação OpenAPI:
+
+```text
+http://localhost:PORTA/v3/api-docs
+```
+
+---
+
+## 8. Endpoints disponíveis
+
+Todas as rotas dos microsserviços utilizam versionamento de API na versão 1.
+
+### 8.1. MS-Locais
+
+Prefixo:
+
+```text
+/api/v1/locais
+```
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| GET | `/api/v1/locais` | Lista todos os locais |
+| GET | `/api/v1/locais/{id}` | Busca um local pelo identificador |
+| POST | `/api/v1/locais` | Cadastra um novo local |
+| PUT | `/api/v1/locais/{id}` | Atualiza um local |
+| PUT | `/api/v1/locais/{localId}/avaliacao/validada` | Atualiza o status do local para VERIFICADO |
+| DELETE | `/api/v1/locais/{id}` | Exclui um local |
+
+### 8.2. MS-Avaliações
+
+Prefixo:
+
+```text
+/api/v1/avaliacoes
+```
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| GET | `/api/v1/avaliacoes` | Lista todas as avaliações |
+| GET | `/api/v1/avaliacoes/{id}` | Busca uma avaliação pelo identificador |
+| POST | `/api/v1/avaliacoes` | Registra uma nova avaliação |
+| PUT | `/api/v1/avaliacoes/{id}` | Atualiza uma avaliação |
+| PATCH | `/api/v1/avaliacoes/{id}/validar` | Valida uma avaliação e comunica com o MS-Locais |
+| DELETE | `/api/v1/avaliacoes/{id}` | Exclui uma avaliação |
+
+As operações de criação retornam HTTP 201 e a URI do recurso criado.
+
+As operações de exclusão retornam HTTP 204 quando realizadas com sucesso.
+
+---
+
+## 9. Testes da aplicação
+
+Os testes podem ser realizados pelo Swagger UI, Postman ou terminal.
+
+Todos os exemplos abaixo utilizam o API Gateway como ponto de entrada.
+
+### 9.1. Consultar os dados iniciais
+
+Listar locais:
 
 ```bash
 curl http://localhost:8082/ms-locais/api/v1/locais
+```
+
+Listar avaliações:
+
+```bash
 curl http://localhost:8082/ms-avaliacoes/api/v1/avaliacoes
 ```
 
-**2. Cadastrar um local**
+Os dados iniciais são inseridos automaticamente pelas migrations do Flyway.
+
+### 9.2. Cadastrar um local
 
 ```bash
-curl -i -X POST http://localhost:8082/ms-locais/api/v1/locais \
-  -H "Content-Type: application/json" \
-  -d '{
-        "nome": "Cinema Central",
-        "endereco": "Rua do Cinema, 45",
-        "cidade": "São Paulo",
-        "tipoLocal": "CINEMA",
-        "recursos": [
-          { "descricao": "Espaço reservado para cadeira de rodas", "tipoDeficiencia": "FISICA", "disponivel": true, "localizacao": "Sala 1", "observacao": "Dois espaços por sessão" },
-          { "descricao": "Sessões com audiodescrição", "tipoDeficiencia": "VISUAL", "disponivel": true, "localizacao": "Todas as salas", "observacao": null },
-          { "descricao": "Sessões com legendas", "tipoDeficiencia": "AUDITIVA", "disponivel": false, "localizacao": "Todas as salas", "observacao": "Previsto para o próximo mês" }
-        ]
-      }'
+curl -X POST http://localhost:8082/ms-locais/api/v1/locais \
+-H "Content-Type: application/json" \
+-d '{
+  "nome": "Cinema Central",
+  "endereco": "Rua do Cinema, 45",
+  "cidade": "São Paulo",
+  "tipoLocal": "CINEMA",
+  "recursos": [
+    {
+      "descricao": "Espaço reservado para cadeira de rodas",
+      "tipoDeficiencia": "FISICA",
+      "disponivel": true,
+      "localizacao": "Sala 1",
+      "observacao": "Dois espaços por sessão"
+    },
+    {
+      "descricao": "Sessões com audiodescrição",
+      "tipoDeficiencia": "VISUAL",
+      "disponivel": true,
+      "localizacao": "Todas as salas",
+      "observacao": null
+    },
+    {
+      "descricao": "Sessões com legendas",
+      "tipoDeficiencia": "AUDITIVA",
+      "disponivel": true,
+      "localizacao": "Todas as salas",
+      "observacao": "Legendas disponíveis"
+    }
+  ]
+}'
 ```
 
-**3. Registrar uma avaliação para o local 1** (status `REGISTRADA`)
+### 9.3. Cadastrar uma avaliação
+
+O exemplo utiliza o identificador de um local existente.
 
 ```bash
-curl -i -X POST http://localhost:8082/ms-avaliacoes/api/v1/avaliacoes \
-  -H "Content-Type: application/json" \
-  -d '{
-        "nomeUsuario": "João Pereira",
-        "tipoDeficiencia": "FISICA",
-        "nota": 5,
-        "comentario": "Rampa na entrada e corredores largos.",
-        "barreiraEncontrada": null,
-        "localId": 1
-      }'
+curl -X POST http://localhost:8082/ms-avaliacoes/api/v1/avaliacoes \
+-H "Content-Type: application/json" \
+-d '{
+  "nomeUsuario": "João Pereira",
+  "tipoDeficiencia": "FISICA",
+  "nota": 5,
+  "comentario": "Rampa na entrada e corredores largos.",
+  "barreiraEncontrada": null,
+  "localId": 1
+}'
 ```
 
-**4. Validar a avaliação → altera o status do local (comunicação síncrona)**
+### 9.4. Validar uma avaliação e testar a comunicação síncrona
+
+Execute:
 
 ```bash
-curl -i -X PATCH http://localhost:8082/ms-avaliacoes/api/v1/avaliacoes/1/validar
-curl http://localhost:8082/ms-locais/api/v1/locais/1      # status agora é VERIFICADO
+curl -X PATCH http://localhost:8082/ms-avaliacoes/api/v1/avaliacoes/1/validar
 ```
 
-**5. Testar o Circuit Breaker + Fallback**
-
-1. Pare **todas** as instâncias do `ms-locais` (Ctrl+C).
-2. Chame novamente `PATCH /api/v1/avaliacoes/2/validar` → resposta **503** e a avaliação fica `VALIDACAO_PENDENTE`.
-3. Suba o `ms-locais`, aguarde ~30 s (registro no Eureka / circuito fechar) e repita o `PATCH` → **200** e `VALIDADA`.
-
-**6. Testar o Load Balancer:** suba duas instâncias do `ms-locais`, confirme as duas no Eureka e
-chame o endpoint `/validar` várias vezes: as chamadas são distribuídas entre as instâncias.
-
-**7. Validações / exceções:** envie um POST com campos inválidos (ex.: `"tipoDeficiencia": "XYZ"`)
-→ **422** com a lista de campos; `GET /api/v1/locais/999` → **404**.
-
-## 🗂️ Estrutura do repositório
-
-```
-.
-├── docker-compose.yml        # MySQL (um container por microsserviço)
-├── eureka-server/            # Service discovery (8761)
-├── api-gateway/              # API Gateway + Swagger agregado (8082)
-├── ms-locais/                # Microsserviço 1 (porta aleatória, db_locais)
-│   └── src/main/java/br/com/fiap/ms/locais/
-│       ├── client  config  controller  dto  entities
-│       └── exceptions  repository  service
-└── ms-avaliacoes/            # Microsserviço 2 (porta aleatória, db_avaliacoes)
-    └── src/main/java/br/com/fiap/ms/avaliacoes/
-        ├── client  config  controller  dto  entities
-        └── exceptions  repository  service
-```
-
-## 🛠️ Tecnologias
-
-Java 25 · Spring Boot 4.0.9 · Spring Cloud 2025.1 (Eureka, OpenFeign, LoadBalancer, Gateway, Circuit Breaker
-com Resilience4j) · Spring Data JPA · Flyway · MySQL 8.4 · springdoc-openapi (Swagger UI) · Lombok · Docker.
-
-## 🧹 Parar / limpar tudo
+Após a validação, consulte o local:
 
 ```bash
-docker compose down -v     # remove containers e volumes (recomeça do zero)
+curl http://localhost:8082/ms-locais/api/v1/locais/1
 ```
+
+O status do local deverá ser atualizado para `VERIFICADO` após a comunicação síncrona entre os microsserviços.
+
+### 9.5. Testar Circuit Breaker e Fallback
+
+1. Mantenha Eureka, Gateway e os bancos em execução.
+2. Pare todas as instâncias do MS-Locais.
+3. Realize uma requisição para validar uma avaliação pelo MS-Avaliações.
+4. Quando ocorrer a falha de comunicação, o Circuit Breaker e o Fallback deverão tratar a indisponibilidade.
+5. A API deverá retornar HTTP 503 e a avaliação deverá permanecer com status `VALIDACAO_PENDENTE`.
+6. Reinicie o MS-Locais e aguarde seu registro no Eureka.
+7. Realize uma nova validação para verificar a comunicação novamente.
+
+### 9.6. Testar Load Balancer
+
+1. Inicie duas instâncias do MS-Locais.
+2. Acesse o painel do Eureka.
+3. Verifique se as duas instâncias estão registradas.
+4. Realize chamadas que utilizem o MS-Locais por meio da comunicação entre microsserviços.
+5. Verifique a distribuição das chamadas entre as instâncias disponíveis.
+
+### 9.7. Testar validações e exceções
+
+Para testar a validação de campos, envie uma requisição com informações inválidas, como um tipo de deficiência não permitido.
+
+Exemplo:
+
+```json
+{
+  "nomeUsuario": "João Pereira",
+  "tipoDeficiencia": "XYZ",
+  "nota": 8,
+  "comentario": "Teste de validação",
+  "barreiraEncontrada": null,
+  "localId": 1
+}
+```
+
+A aplicação deverá rejeitar os dados inválidos.
+
+Também é possível testar a busca de um identificador inexistente:
+
+```bash
+curl http://localhost:8082/ms-locais/api/v1/locais/999
+```
+
+A resposta esperada é HTTP 404.
+
+---
+
+## 10. Persistência e migrations
+
+Cada microsserviço possui seu próprio banco MySQL.
+
+### Banco db_locais
+
+As migrations estão em:
+
+```text
+ms-locais/src/main/resources/db/migration/
+```
+
+Arquivos:
+
+- `V1__create_tb_local.sql`
+- `V1.1__insert_tb_local.sql`
+- `V2__create_tb_recurso_acessibilidade.sql`
+- `V2.1__insert_tb_recurso_acessibilidade.sql`
+
+Tabelas criadas:
+
+- `tb_local`
+- `tb_recurso_acessibilidade`
+- `flyway_schema_history`
+
+### Banco db_avaliacoes
+
+As migrations estão em:
+
+```text
+ms-avaliacoes/src/main/resources/db/migration/
+```
+
+Arquivos:
+
+- `V1__create_tb_avaliacao.sql`
+- `V1.1__insert_tb_avaliacao.sql`
+
+Tabelas criadas:
+
+- `tb_avaliacao`
+- `flyway_schema_history`
+
+As migrations são executadas automaticamente na inicialização dos respectivos microsserviços.
+
+---
+
+## 11. Organização em camadas
+
+Os microsserviços seguem arquitetura em camadas, com separação de responsabilidades:
+
+| Camada | Responsabilidade |
+|---|---|
+| Entity | Representação das entidades e dados persistidos |
+| DTO | Objetos de entrada e saída das APIs |
+| Repository | Acesso e persistência dos dados |
+| Service | Regras de negócio e operações da aplicação |
+| Controller | Exposição dos endpoints e respostas HTTP |
+| Exceptions | Tratamento de exceções e erros personalizados |
+| Config | Configurações dos componentes |
+| Client | Comunicação com outros microsserviços por OpenFeign |
+
+As entidades não são expostas diretamente nos endpoints. As requisições e respostas utilizam DTOs específicos.
+
+---
+
+## 12. Evidências de execução
+
+As imagens abaixo documentam a configuração e a execução dos componentes do projeto.
+
+### Docker
+
+![Docker Desktop](docs/screenshots/docker.png)
+
+### Inicialização dos containers pelo terminal
+
+![Terminal Docker](docs/screenshots/terminal-docker.png)
+
+### Banco de dados — MS-Locais
+
+![MySQL MS-Locais](docs/screenshots/mysql-ms-locais.png)
+
+### Banco de dados — MS-Avaliações
+
+![MySQL MS-Avaliações](docs/screenshots/mysql-ms-avaliacoes.png)
+
+### Registro do MS-Locais no Eureka
+
+![Eureka MS-Locais](docs/screenshots/eureka-ms-locais.png)
+
+### Registro do MS-Avaliações no Eureka
+
+![Eureka MS-Avaliações](docs/screenshots/eureka-ms-avaliacoes.png)
+
+---
+
+## 13. Encerramento da aplicação
+
+Para interromper os microsserviços, utilize `Ctrl + C` nos respectivos terminais.
+
+Para interromper os containers MySQL, execute na raiz do projeto:
+
+```bash
+docker compose -f mysql_846/docker-compose.yml down
+```
+
+Esse comando remove os containers, mas preserva os volumes de dados.
+
+**Atenção:** não utilize `docker compose down -v` se desejar preservar os dados armazenados nos bancos.
+
+---
+
+## 14. Repositório
+
+O código-fonte completo está disponível publicamente no GitHub:
+
+**https://github.com/lara-sodre/global-solution-mobility**
+
+---
+
+**Global Solution 2026-02 — FIAP**  
+*Acessibilidade Inclusiva: Mobilidade sem Barreiras.*
