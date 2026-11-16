@@ -663,7 +663,7 @@ As imagens abaixo documentam a configuração e a execução dos componentes do 
 
 ### Docker
 
-![Docker Desktop](docs/screenshots/docker.png)
+![Docker Desktop](docs/screenshots/docker-avaliacoes-locais.png)
 
 ### Inicialização dos containers pelo terminal
 
